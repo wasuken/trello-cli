@@ -101,12 +101,14 @@ func main() {
 		printBoards(member)
 	} else if os.Args[1] == "lists" {
 		if len(os.Args) < 3 {
+			fmt.Println("lists <board-id>")
 			return
 		}
 		bid := os.Args[2]
 		printLists(bid, client)
 	} else if os.Args[1] == "addCard" {
 		if len(os.Args) < 5 {
+			fmt.Println("addCard <list-id> <card-name> <card-description>")
 			return
 		}
 		lid := os.Args[2]
@@ -115,13 +117,22 @@ func main() {
 		addCard(lid, name, desc, client)
 	} else if os.Args[1] == "removeCard" {
 		if len(os.Args) < 3 {
+			fmt.Println("removeCard <card-id>")
 			return
 		}
 		cid := os.Args[2]
 		removeCard(cid, client)
 	} else if os.Args[1] == "moveCard" {
+		if len(os.Args) < 4 {
+			fmt.Println("moveCard <card-id> <list-id>")
+			return
+		}
 		cid := os.Args[2]
 		lid := os.Args[3]
 		moveCard(cid, lid, client)
+	} else {
+		fmt.Println("command not found")
+		fmt.Println("command = [boards lists addCard removeCard moveCard]")
+		return
 	}
 }
