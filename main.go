@@ -17,7 +17,7 @@ type APIConfig struct {
 	Token  string
 }
 
-func printBoards(member trello.Member) {
+func printBoards(member *trello.Member) {
 	boards, err := member.GetBoards(trello.Defaults())
 	if err != nil {
 		panic("torello client error.")
@@ -26,7 +26,7 @@ func printBoards(member trello.Member) {
 		fmt.Println("name:" + board.Name + ", id:" + board.ID)
 	}
 }
-func printLists(bid string, client trello.Client) {
+func printLists(bid string, client *trello.Client) {
 	board, er := client.GetBoard(bid, trello.Defaults())
 	fmt.Println(board.Name)
 	if er != nil {
@@ -47,7 +47,7 @@ func printLists(bid string, client trello.Client) {
 		}
 	}
 }
-func addCard(lid, name, desc string, client trello.Client) {
+func addCard(lid, name, desc string, client *trello.Client) {
 	list, err := client.GetList(lid, trello.Defaults())
 	if err != nil {
 		panic("failed get list")
@@ -57,7 +57,7 @@ func addCard(lid, name, desc string, client trello.Client) {
 		panic("failed create card")
 	}
 }
-func removeCard(cid string, client trello.Client) {
+func removeCard(cid string, client *trello.Client) {
 	card, err := client.GetCard(cid, trello.Defaults())
 	if err != nil {
 		panic("failed get card")
@@ -88,7 +88,7 @@ func main() {
 			return
 		}
 		bid := os.Args[2]
-		printList(bid, client)
+		printLists(bid, client)
 	} else if os.Args[1] == "addCard" {
 		if len(os.Args) < 5 {
 			return
@@ -96,7 +96,7 @@ func main() {
 		lid := os.Args[2]
 		name := os.Args[3]
 		desc := os.Args[4]
-		addCard(lid, name, desc)
+		addCard(lid, name, desc, client)
 	} else if os.Args[1] == "removeCard" {
 		if len(os.Args) < 3 {
 			return
