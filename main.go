@@ -15,6 +15,7 @@ type Config struct {
 type APIConfig struct {
 	Apikey string
 	Token  string
+	Member string
 }
 
 func printBoards(member *trello.Member) {
@@ -30,7 +31,7 @@ func printLists(bid string, client *trello.Client) {
 	board, er := client.GetBoard(bid, trello.Defaults())
 	fmt.Println(board.Name)
 	if er != nil {
-		panic("not get board")
+		panic("please input base command")
 	}
 	lists, err := board.GetLists(trello.Defaults())
 	if err != nil {
@@ -68,16 +69,31 @@ func removeCard(cid string, client *trello.Client) {
 		panic("failed remove card")
 	}
 }
+
+func moveCard(cid, after_lid string, client *trello.Client) {
+	card, err := client.GetCard(cid, trello.Defaults())
+	if err != nil {
+		panic("card not found")
+	}
+	er := card.MoveToList(after_lid, trello.Defaults())
+	if er != nil {
+		panic("failed move card")
+	}
+}
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("command not found")
+		return
+	}
 	var config Config
 	usr, _ := user.Current()
-	_, err := toml.DecodeFile(usr.HomeDir+"/.config/torello-cron/config.toml", &config)
+	_, err := toml.DecodeFile(usr.HomeDir+"/.config/trello-cli/config.toml", &config)
 	if err != nil {
 		fmt.Println(err)
 		panic("config file not found.")
 	}
 	client := trello.NewClient(config.API.Apikey, config.API.Token)
-	member, err := client.GetMember("5d800d1e3ca8aa7f4be3e12b", trello.Defaults())
+	member, err := client.GetMember(config.API.Member, trello.Defaults())
 	if err != nil {
 		panic("member error.")
 	}
@@ -103,5 +119,9 @@ func main() {
 		}
 		cid := os.Args[2]
 		removeCard(cid, client)
+	} else if os.Args[1] == "moveCard" {
+		cid := os.Args[2]
+		lid := os.Args[3]
+		moveCard(cid, lid, client)
 	}
 }
