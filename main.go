@@ -83,6 +83,7 @@ func moveCard(cid, after_lid string, client *trello.Client) {
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("command not found")
+		fmt.Println("command = [boards lists addCard removeCard moveCard]")
 		return
 	}
 	var config Config
