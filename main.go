@@ -124,7 +124,7 @@ func main() {
 		},
 		{
 			Name:    "lists",
-			Aliases: []string{"board-id"},
+			Aliases: []string{},
 			Usage:   "print lists and cards",
 			Action: func(c *cli.Context) error {
 				bid := c.Args().First()
@@ -134,7 +134,7 @@ func main() {
 		},
 		{
 			Name:    "removeCard",
-			Aliases: []string{"card-id"},
+			Aliases: []string{},
 			Usage:   "remove card",
 			Action: func(c *cli.Context) error {
 				cid := c.Args().First()
@@ -143,8 +143,20 @@ func main() {
 			},
 		},
 		{
+			Name:    "addCard",
+			Aliases: []string{},
+			Usage:   "add card",
+			Action: func(c *cli.Context) error {
+				lid := c.Args().First()
+				name := c.Args().Get(1)
+				desc := c.Args().Get(2)
+				addCard(lid, name, desc, client)
+				return nil
+			},
+		},
+		{
 			Name:    "moveCard",
-			Aliases: []string{"card-id", "list-id"},
+			Aliases: []string{},
 			Usage:   "move card",
 			Action: func(c *cli.Context) error {
 				cid := c.Args().First()
