@@ -7,6 +7,7 @@ import (
 	"github.com/urfave/cli"
 	"os"
 	"os/user"
+	"regexp"
 )
 
 type Config struct {
@@ -105,6 +106,25 @@ func addList(bid, name string, client *trello.Client) {
 	}
 }
 
+func searchList(bid, query string, client *trello.Client) map[string]string {
+	r := regexp.MustCompile(query)
+	board, err := client.GetBoard(bid, trello.Defaults())
+	if err != nil {
+		panic("failed get board")
+	}
+	lists, er := board.GetLists(trello.Defaults())
+	if er != nil {
+		panic("failed get lists")
+	}
+	result := map[string]string{}
+	for _, list := range lists {
+		if r.MatchString(list.Name) {
+			result[list.ID] = list.Name
+		}
+	}
+	return result
+}
+
 func main() {
 	var config Config
 	usr, _ := user.Current()
@@ -195,6 +215,19 @@ func main() {
 				bid := c.Args().First()
 				name := c.Args().Get(1)
 				addList(bid, name, client)
+				return nil
+			},
+		},
+		{
+			Name:    "searchList",
+			Aliases: []string{},
+			Usage:   "search list",
+			Action: func(c *cli.Context) error {
+				bid := c.Args().First()
+				query := c.Args().Get(1)
+				for key, value := range searchList(bid, query, client) {
+					fmt.Println(key + " " + value)
+				}
 				return nil
 			},
 		},
