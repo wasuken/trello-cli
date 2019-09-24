@@ -93,6 +93,18 @@ func moveCard(cid, after_lid string, client *trello.Client) {
 		panic("failed move card")
 	}
 }
+
+func addList(bid, name string, client *trello.Client) {
+	board, err := client.GetBoard(bid, trello.Defaults())
+	if err != nil {
+		panic("failed get board")
+	}
+	_, er := board.CreateList(name, trello.Defaults())
+	if er != nil {
+		panic("failed create list")
+	}
+}
+
 func main() {
 	var config Config
 	usr, _ := user.Current()
@@ -172,6 +184,17 @@ func main() {
 			Action: func(c *cli.Context) error {
 				lid := c.Args().First()
 				archiveList(lid, client)
+				return nil
+			},
+		},
+		{
+			Name:    "addList",
+			Aliases: []string{},
+			Usage:   "add list",
+			Action: func(c *cli.Context) error {
+				bid := c.Args().First()
+				name := c.Args().Get(1)
+				addList(bid, name, client)
 				return nil
 			},
 		},
