@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/adlio/trello"
+	"github.com/urfave/cli"
 	"os"
 	"os/user"
 )
@@ -63,10 +64,22 @@ func removeCard(cid string, client *trello.Client) {
 	if err != nil {
 		panic("failed get card")
 	}
-	er := client.Delete("cards/"+card.ID, trello.Defaults(), nil)
+	er := client.Delete("cards/"+card.ID, trello.Defaults(), card)
 	if er != nil {
 		fmt.Println(er)
 		panic("failed remove card")
+	}
+}
+
+func archiveList(lid string, client *trello.Client) {
+	list, err := client.GetList(lid, trello.Defaults())
+	if err != nil {
+		panic("failed get list")
+	}
+	er := client.Put("lists/"+lid, trello.Arguments{"closed": "true"}, list)
+	if er != nil {
+		fmt.Println(er)
+		panic("failed archive list")
 	}
 }
 
@@ -81,11 +94,6 @@ func moveCard(cid, after_lid string, client *trello.Client) {
 	}
 }
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("command not found")
-		fmt.Println("command = [boards lists addCard removeCard moveCard]")
-		return
-	}
 	var config Config
 	usr, _ := user.Current()
 	_, err := toml.DecodeFile(usr.HomeDir+"/.config/trello-cli/config.toml", &config)
@@ -94,46 +102,72 @@ func main() {
 		panic("config file not found.")
 	}
 	client := trello.NewClient(config.API.Apikey, config.API.Token)
-	member, err := client.GetMember(config.API.Member, trello.Defaults())
-	if err != nil {
-		panic("member error.")
+	app := cli.NewApp()
+	app.Name = "trello-cli"
+	app.Usage = "trello cli tool"
+	app.Version = "0.0.1"
+
+	app.Commands = []cli.Command{
+		{
+			Name:    "boards",
+			Aliases: []string{},
+			Usage:   "print boards",
+			Action: func(c *cli.Context) error {
+				member, err := client.GetMember(config.API.Member, trello.Defaults())
+				if err != nil {
+					fmt.Println(err)
+					panic("config file not found.")
+				}
+				printBoards(member)
+				return nil
+			},
+		},
+		{
+			Name:    "lists",
+			Aliases: []string{"board-id"},
+			Usage:   "print lists and cards",
+			Action: func(c *cli.Context) error {
+				bid := c.Args().First()
+				printLists(bid, client)
+				return nil
+			},
+		},
+		{
+			Name:    "removeCard",
+			Aliases: []string{"card-id"},
+			Usage:   "remove card",
+			Action: func(c *cli.Context) error {
+				cid := c.Args().First()
+				removeCard(cid, client)
+				return nil
+			},
+		},
+		{
+			Name:    "moveCard",
+			Aliases: []string{"card-id", "list-id"},
+			Usage:   "move card",
+			Action: func(c *cli.Context) error {
+				cid := c.Args().First()
+				lid := c.Args().Get(1)
+				moveCard(cid, lid, client)
+				return nil
+			},
+		},
+		{
+			Name:    "archiveList",
+			Aliases: []string{},
+			Usage:   "archive list",
+			Action: func(c *cli.Context) error {
+				lid := c.Args().First()
+				archiveList(lid, client)
+				return nil
+			},
+		},
 	}
-	if os.Args[1] == "boards" {
-		printBoards(member)
-	} else if os.Args[1] == "lists" {
-		if len(os.Args) < 3 {
-			fmt.Println("lists <board-id>")
-			return
-		}
-		bid := os.Args[2]
-		printLists(bid, client)
-	} else if os.Args[1] == "addCard" {
-		if len(os.Args) < 5 {
-			fmt.Println("addCard <list-id> <card-name> <card-description>")
-			return
-		}
-		lid := os.Args[2]
-		name := os.Args[3]
-		desc := os.Args[4]
-		addCard(lid, name, desc, client)
-	} else if os.Args[1] == "removeCard" {
-		if len(os.Args) < 3 {
-			fmt.Println("removeCard <card-id>")
-			return
-		}
-		cid := os.Args[2]
-		removeCard(cid, client)
-	} else if os.Args[1] == "moveCard" {
-		if len(os.Args) < 4 {
-			fmt.Println("moveCard <card-id> <list-id>")
-			return
-		}
-		cid := os.Args[2]
-		lid := os.Args[3]
-		moveCard(cid, lid, client)
-	} else {
-		fmt.Println("command not found")
-		fmt.Println("command = [boards lists addCard removeCard moveCard]")
-		return
+
+	er := app.Run(os.Args)
+	if er != nil {
+		fmt.Println(er)
+		panic("error app run.")
 	}
 }
