@@ -125,6 +125,19 @@ func searchList(bid, query string, client *trello.Client) map[string]string {
 	return result
 }
 
+func moveAllCards(fromListId, toBoardId, toListId string, client *trello.Client) {
+	list, err := client.GetList(fromListId, trello.Defaults())
+	if err != nil {
+		panic("failed get list")
+	}
+	lists := []*trello.List{list}
+	er := client.Post("lists/"+fromListId+"/moveAllCards",
+		trello.Arguments{"idBoard": toBoardId, "idList": toListId}, lists)
+	if er != nil {
+		panic("failed post lists/moveAllCards")
+	}
+}
+
 func main() {
 	var config Config
 	usr, _ := user.Current()
@@ -228,6 +241,18 @@ func main() {
 				for key, value := range searchList(bid, query, client) {
 					fmt.Println(key + " " + value)
 				}
+				return nil
+			},
+		},
+		{
+			Name:    "moveAllCards",
+			Aliases: []string{},
+			Usage:   "move All Cards",
+			Action: func(c *cli.Context) error {
+				fromListId := c.Args().First()
+				toBoardId := c.Args().Get(1)
+				toListId := c.Args().Get(2)
+				moveAllCards(fromListId, toBoardId, toListId, client)
 				return nil
 			},
 		},
