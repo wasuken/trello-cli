@@ -1,5 +1,7 @@
 # trello-cli
 
+## make config
+
 ## install
 
 ### build
@@ -91,4 +93,4 @@ $ trello-cli moveCard <card-id> <list-id>
 
 ## TODO
 
-* if festival -> using [urfave/cli](https://github.com/urfave/cli)
+
