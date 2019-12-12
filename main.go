@@ -26,7 +26,7 @@ func printBoards(member *trello.Member) {
 		panic("torello client error.")
 	}
 	for _, board := range boards {
-		fmt.Println("name:" + board.Name + ", id:" + board.ID)
+		fmt.Println("name=>" + board.Name + ", id=>" + board.ID)
 	}
 }
 func printLists(bid string, client *trello.Client) {
@@ -40,13 +40,13 @@ func printLists(bid string, client *trello.Client) {
 		panic("not get lists")
 	}
 	for _, list := range lists {
-		fmt.Println("name:" + list.Name + ", id:" + list.ID)
+		fmt.Println("name=>" + list.Name + ", id=>" + list.ID)
 		cards, err := list.GetCards(trello.Defaults())
 		if err != nil {
 			panic("not get cards")
 		}
 		for _, card := range cards {
-			fmt.Println("    name:" + card.Name + ", id:" + card.ID)
+			fmt.Println("    name=>" + card.Name + ", id=>" + card.ID)
 		}
 	}
 }
@@ -135,6 +135,27 @@ func moveAllCards(fromListId, toBoardId, toListId string, client *trello.Client)
 		trello.Arguments{"idBoard": toBoardId, "idList": toListId}, lists)
 	if er != nil {
 		panic("failed post lists/moveAllCards")
+	}
+}
+func printCardInfo(cardId string, client *trello.Client) {
+	card, err := client.GetCard(cardId, trello.Defaults())
+	if err != nil {
+		panic("failed get card")
+	}
+	const layout = "2006-01-02 15:04:05"
+	fmt.Println("id=>" + card.ID + "\tname=>" + card.Name + "\tdate=>" + card.DateLastActivity.Format(layout))
+}
+func printListInfo(listId string, client *trello.Client) {
+	list, err := client.GetList(listId, trello.Defaults())
+	if err != nil {
+		panic("failed get list")
+	}
+	cards, e := list.GetCards(trello.Defaults())
+	if e != nil {
+		panic("failed get cards")
+	}
+	for _, card := range cards {
+		printCardInfo(card.ID, client)
 	}
 }
 
@@ -253,6 +274,26 @@ func main() {
 				toBoardId := c.Args().Get(1)
 				toListId := c.Args().Get(2)
 				moveAllCards(fromListId, toBoardId, toListId, client)
+				return nil
+			},
+		},
+		{
+			Name:    "infoCard",
+			Aliases: []string{},
+			Usage:   "print card info",
+			Action: func(c *cli.Context) error {
+				cardId := c.Args().First()
+				printCardInfo(cardId, client)
+				return nil
+			},
+		},
+		{
+			Name:    "infoListInCards",
+			Aliases: []string{},
+			Usage:   "print list in cards info",
+			Action: func(c *cli.Context) error {
+				listId := c.Args().First()
+				printListInfo(listId, client)
 				return nil
 			},
 		},
