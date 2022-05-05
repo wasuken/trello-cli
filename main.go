@@ -2,161 +2,44 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/user"
+	"time"
+	"trello-cli/dest"
+	tr "trello-cli/trello"
+
 	"github.com/BurntSushi/toml"
 	"github.com/adlio/trello"
 	"github.com/urfave/cli"
-	"os"
-	"os/user"
-	"regexp"
 )
 
 type Config struct {
-	API APIConfig
+	API   APIConfig
+	Slack SlackConfig
+	Gmail GmailConfig
+	Ymail YmailConfig
 }
-
+type GmailConfig struct {
+	Email      string
+	Smtpserver string
+	Password   string
+	Port       int
+}
+type YmailConfig struct {
+	Email      string
+	Smtpserver string
+	Password   string
+	Port       int
+}
+type SlackConfig struct {
+	Token string
+}
 type APIConfig struct {
-	Apikey string
-	Token  string
-	Member string
-}
-
-func printBoards(member *trello.Member) {
-	boards, err := member.GetBoards(trello.Defaults())
-	if err != nil {
-		panic("torello client error.")
-	}
-	for _, board := range boards {
-		fmt.Println("name=>" + board.Name + ", id=>" + board.ID)
-	}
-}
-func printLists(bid string, client *trello.Client) {
-	board, er := client.GetBoard(bid, trello.Defaults())
-	fmt.Println(board.Name)
-	if er != nil {
-		panic("please input base command")
-	}
-	lists, err := board.GetLists(trello.Defaults())
-	if err != nil {
-		panic("not get lists")
-	}
-	for _, list := range lists {
-		fmt.Println("name=>" + list.Name + ", id=>" + list.ID)
-		cards, err := list.GetCards(trello.Defaults())
-		if err != nil {
-			panic("not get cards")
-		}
-		for _, card := range cards {
-			fmt.Println("    name=>" + card.Name + ", id=>" + card.ID)
-		}
-	}
-}
-func addCard(lid, name, desc string, client *trello.Client) {
-	list, err := client.GetList(lid, trello.Defaults())
-	if err != nil {
-		panic("failed get list")
-	}
-	er := list.AddCard(&trello.Card{Name: name, Desc: desc}, trello.Defaults())
-	if er != nil {
-		panic("failed create card")
-	}
-}
-func removeCard(cid string, client *trello.Client) {
-	card, err := client.GetCard(cid, trello.Defaults())
-	if err != nil {
-		panic("failed get card")
-	}
-	er := client.Delete("cards/"+card.ID, trello.Defaults(), card)
-	if er != nil {
-		fmt.Println(er)
-		panic("failed remove card")
-	}
-}
-
-func archiveList(lid string, client *trello.Client) {
-	list, err := client.GetList(lid, trello.Defaults())
-	if err != nil {
-		panic("failed get list")
-	}
-	er := client.Put("lists/"+lid, trello.Arguments{"closed": "true"}, list)
-	if er != nil {
-		fmt.Println(er)
-		panic("failed archive list")
-	}
-}
-
-func moveCard(cid, after_lid string, client *trello.Client) {
-	card, err := client.GetCard(cid, trello.Defaults())
-	if err != nil {
-		panic("card not found")
-	}
-	er := card.MoveToList(after_lid, trello.Defaults())
-	if er != nil {
-		panic("failed move card")
-	}
-}
-
-func addList(bid, name string, client *trello.Client) {
-	board, err := client.GetBoard(bid, trello.Defaults())
-	if err != nil {
-		panic("failed get board")
-	}
-	_, er := board.CreateList(name, trello.Defaults())
-	if er != nil {
-		panic("failed create list")
-	}
-}
-
-func searchList(bid, query string, client *trello.Client) map[string]string {
-	r := regexp.MustCompile(query)
-	board, err := client.GetBoard(bid, trello.Defaults())
-	if err != nil {
-		panic("failed get board")
-	}
-	lists, er := board.GetLists(trello.Defaults())
-	if er != nil {
-		panic("failed get lists")
-	}
-	result := map[string]string{}
-	for _, list := range lists {
-		if r.MatchString(list.Name) {
-			result[list.ID] = list.Name
-		}
-	}
-	return result
-}
-
-func moveAllCards(fromListId, toBoardId, toListId string, client *trello.Client) {
-	list, err := client.GetList(fromListId, trello.Defaults())
-	if err != nil {
-		panic("failed get list")
-	}
-	lists := []*trello.List{list}
-	er := client.Post("lists/"+fromListId+"/moveAllCards",
-		trello.Arguments{"idBoard": toBoardId, "idList": toListId}, lists)
-	if er != nil {
-		panic("failed post lists/moveAllCards")
-	}
-}
-func printCardInfo(cardId string, client *trello.Client) {
-	card, err := client.GetCard(cardId, trello.Defaults())
-	if err != nil {
-		panic("failed get card")
-	}
-	const layout = "2006-01-02 15:04:05"
-	fmt.Println("id=>" + card.ID + "\tname=>" + card.Name + "\tdate=>" + card.DateLastActivity.Format(layout))
-}
-func printListInfo(listId string, client *trello.Client) {
-	list, err := client.GetList(listId, trello.Defaults())
-	if err != nil {
-		panic("failed get list")
-	}
-	cards, e := list.GetCards(trello.Defaults())
-	if e != nil {
-		panic("failed get cards")
-	}
-	for _, card := range cards {
-		printCardInfo(card.ID, client)
-	}
+	Apikey  string
+	Token   string
+	Member  string
+	Boardid string
+	List    []string
 }
 
 func main() {
@@ -175,125 +58,50 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:    "boards",
+			Name:    "notify",
 			Aliases: []string{},
-			Usage:   "print boards",
+			Usage:   "notify list info",
 			Action: func(c *cli.Context) error {
-				member, err := client.GetMember(config.API.Member, trello.Defaults())
+				send := c.Args().Get(0)
+				bid := config.API.Boardid
+
+				contents, err := tr.WatchListsToContent(bid, client, config.API.List)
 				if err != nil {
-					fmt.Println(err)
-					panic("config file not found.")
+					panic(err)
 				}
-				printBoards(member)
-				return nil
-			},
-		},
-		{
-			Name:    "lists",
-			Aliases: []string{},
-			Usage:   "print lists and cards",
-			Action: func(c *cli.Context) error {
-				bid := c.Args().First()
-				printLists(bid, client)
-				return nil
-			},
-		},
-		{
-			Name:    "removeCard",
-			Aliases: []string{},
-			Usage:   "remove card",
-			Action: func(c *cli.Context) error {
-				cid := c.Args().First()
-				removeCard(cid, client)
-				return nil
-			},
-		},
-		{
-			Name:    "addCard",
-			Aliases: []string{},
-			Usage:   "add card",
-			Action: func(c *cli.Context) error {
-				lid := c.Args().First()
-				name := c.Args().Get(1)
-				desc := c.Args().Get(2)
-				addCard(lid, name, desc, client)
-				return nil
-			},
-		},
-		{
-			Name:    "moveCard",
-			Aliases: []string{},
-			Usage:   "move card",
-			Action: func(c *cli.Context) error {
-				cid := c.Args().First()
-				lid := c.Args().Get(1)
-				moveCard(cid, lid, client)
-				return nil
-			},
-		},
-		{
-			Name:    "archiveList",
-			Aliases: []string{},
-			Usage:   "archive list",
-			Action: func(c *cli.Context) error {
-				lid := c.Args().First()
-				archiveList(lid, client)
-				return nil
-			},
-		},
-		{
-			Name:    "addList",
-			Aliases: []string{},
-			Usage:   "add list",
-			Action: func(c *cli.Context) error {
-				bid := c.Args().First()
-				name := c.Args().Get(1)
-				addList(bid, name, client)
-				return nil
-			},
-		},
-		{
-			Name:    "searchList",
-			Aliases: []string{},
-			Usage:   "search list",
-			Action: func(c *cli.Context) error {
-				bid := c.Args().First()
-				query := c.Args().Get(1)
-				for key, value := range searchList(bid, query, client) {
-					fmt.Println(key + " " + value)
+				// 関数だけ置換したいけどできるのだろうか
+				switch send {
+				case "slack":
+					channel := c.Args().Get(1)
+					for i, content := range contents {
+						ind := time.Duration((i % 4) + 1)
+						time.Sleep(time.Second * ind)
+						dest.SlackSendContent(config.Slack.Token, channel, content)
+					}
+				case "mail":
+					body := "from trello-cli"
+					for _, content := range contents {
+						body += "\n\n" + content
+					}
+					email := config.Gmail.Email
+					pass := config.Gmail.Password
+					srv := config.Gmail.Smtpserver
+					port := config.Gmail.Port
+					mail := dest.NewMail(email, pass, srv, port)
+					mail.Send(email, "[trello] notify", body)
+				case "ymail":
+					body := "from trello-cli"
+					for _, content := range contents {
+						body += "\n\n" + content
+					}
+					email := config.Ymail.Email
+					pass := config.Ymail.Password
+					srv := config.Ymail.Smtpserver
+					port := config.Ymail.Port
+					mail := dest.NewMail(email, pass, srv, port)
+					mail.Send(email, "[trello] notify", body)
 				}
-				return nil
-			},
-		},
-		{
-			Name:    "moveAllCards",
-			Aliases: []string{},
-			Usage:   "move All Cards",
-			Action: func(c *cli.Context) error {
-				fromListId := c.Args().First()
-				toBoardId := c.Args().Get(1)
-				toListId := c.Args().Get(2)
-				moveAllCards(fromListId, toBoardId, toListId, client)
-				return nil
-			},
-		},
-		{
-			Name:    "infoCard",
-			Aliases: []string{},
-			Usage:   "print card info",
-			Action: func(c *cli.Context) error {
-				cardId := c.Args().First()
-				printCardInfo(cardId, client)
-				return nil
-			},
-		},
-		{
-			Name:    "infoListInCards",
-			Aliases: []string{},
-			Usage:   "print list in cards info",
-			Action: func(c *cli.Context) error {
-				listId := c.Args().First()
-				printListInfo(listId, client)
+				fmt.Println("finished.")
 				return nil
 			},
 		},
